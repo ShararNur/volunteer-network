@@ -10,7 +10,7 @@ const upload = require('./middleware/upload');
 // console.log(process.env.DB_USER, process.env.DB_PASS);
 
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://your-vercel-frontend-url.vercel.app'],
+  origin: ['http://localhost:5173', 'https://volunteer-network-sna.vercel.app'],
   credentials: true
 }));
 app.use(bodyParser.json());
