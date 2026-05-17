@@ -1,0 +1,10 @@
+@import 'tailwindcss';
+@plugin "daisyui/index.js";
+
+/* Force manual dark mode strategy (requires a .dark class to trigger) to disable OS-based dark mode */
+@custom-variant dark (&:where(.dark, .dark *));
+@plugin "daisyui/theme" {
+  name: 'light';
+  default: true;
+  --color-primary: #3f90fc;
+}
