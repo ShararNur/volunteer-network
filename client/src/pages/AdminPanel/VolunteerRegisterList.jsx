@@ -1,50 +1,45 @@
-import axios from 'axios';
 import { Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
+import DataLoadingState, { TableRowsSkeleton } from '../../components/DataLoadingState';
+import { useFetchData } from '../../hooks/useFetchData';
+import { apiRequest, getApiErrorMessage } from '../../utils/apiClient';
 
 const VolunteerRegisterList = () => {
-  const [volunteerList, setVolunteerList] = useState([]);
   const [registrationId, setRegistrationId] = useState('');
   const [refetch, setRefetch] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    const fetchVolunteerRegisterList = async () => {
-      try {
-        const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/volunteer-register-list`,
-        );
-        if (response.status === 200) {
-          console.log('Volunteer Register List:', response.data);
-          setVolunteerList(response?.data?.data);
-        } else {
-          toast.error('Failed to fetch volunteer register list', {
-            position: 'bottom-right',
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching volunteer register list:', error);
-      }
-    };
-    fetchVolunteerRegisterList();
-  }, [refetch]);
+  const { data: volunteerList, loading, error, retry } = useFetchData(
+    async () => {
+      const response = await apiRequest({
+        method: 'get',
+        url: '/api/volunteer-register-list',
+      });
+      return response?.data?.data ?? [];
+    },
+    [refetch],
+  );
 
   const handleDelete = async () => {
+    setDeleting(true);
     try {
-      const response = await axios.delete(
-        `${import.meta.env.VITE_API_URL}/api/delete-event/${registrationId}`,
-      );
+      const response = await apiRequest({
+        method: 'delete',
+        url: `/api/delete-event/${registrationId}`,
+      });
       if (response.status === 200) {
-        console.log('response', response);
         toast.success(response.data.message, {
           position: 'bottom-right',
         });
         setRefetch((prev) => !prev);
       }
-    } catch (error) {
-      toast.error('Failed to delete registration' | error.message, {
+    } catch (err) {
+      toast.error(getApiErrorMessage(err), {
         position: 'bottom-right',
       });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -58,9 +53,17 @@ const VolunteerRegisterList = () => {
       </div>
 
       <div className="bg-[#F4F7FC] px-4 md:px-6 pt-6 pb-20 overflow-hidden">
-        <div className="overflow-x-auto rounded-box border border-base-content/5 bg-white p-4 md:p-5 rounded-xl">
+        {error && !loading && (
+          <DataLoadingState variant="error" error={error} onRetry={retry} />
+        )}
+
+        <div
+          className={`overflow-x-auto rounded-box border border-base-content/5 bg-white p-4 md:p-5 rounded-xl ${error && !loading ? 'hidden' : ''}`}
+        >
+          {loading && (
+            <DataLoadingState variant="loading" className="py-6" />
+          )}
           <table className="table">
-            {/* head */}
             <thead className="bg-[#F5F6FA]">
               <tr>
                 <th>Name</th>
@@ -71,9 +74,10 @@ const VolunteerRegisterList = () => {
               </tr>
             </thead>
             <tbody>
-              {volunteerList.map((volunteer, index) => {
-                return (
-                  <tr key={index} className="hover:bg-base-300">
+              {loading && <TableRowsSkeleton />}
+              {!loading &&
+                volunteerList?.map((volunteer, index) => (
+                  <tr key={volunteer?._id ?? index} className="hover:bg-base-300">
                     <td>{volunteer?.full_name}</td>
                     <td>{volunteer?.email}</td>
                     <td>{volunteer?.date}</td>
@@ -89,8 +93,7 @@ const VolunteerRegisterList = () => {
                       />
                     </td>
                   </tr>
-                );
-              })}
+                ))}
             </tbody>
           </table>
         </div>
@@ -103,11 +106,18 @@ const VolunteerRegisterList = () => {
           </p>
           <div className="modal-action">
             <form method="dialog" className="flex gap-2">
-              {/* if there is a button in form, it will close the modal */}
-              <button className="btn" onClick={handleDelete}>
+              <button
+                className="btn"
+                onClick={handleDelete}
+              >
+                {deleting && (
+                  <span className="loading loading-spinner loading-sm" />
+                )}
                 Yes
               </button>
-              <button className="btn">No</button>
+              <button className="btn">
+                No
+              </button>
             </form>
           </div>
         </div>

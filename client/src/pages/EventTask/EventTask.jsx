@@ -1,61 +1,58 @@
-import axios from 'axios';
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
+import DataLoadingState, { EventCardsSkeleton } from '../../components/DataLoadingState';
 import Navbar from '../../components/Navbar';
+import { useFetchData } from '../../hooks/useFetchData';
+import { apiRequest, getApiErrorMessage } from '../../utils/apiClient';
 import volunteerPic from './../../assets/images/extraVolunteer.png';
 
 const EventTask = () => {
   const location = useLocation();
-  const { email, fullName } = location.state || {}; // Extract email from location state if available
-  const [data, setData] = useState([]);
+  const { email, fullName } = location.state || {};
   const [refetch, setRefetch] = useState(false);
   const [eventId, setEventId] = useState('');
-  console.log('location', location);
+  const [deleting, setDeleting] = useState(false);
+  const deleteModalRef = useRef(null);
 
-  useEffect(() => {
-    const fetchEventDetails = async () => {
-      try {
-        const response = await axios.post(
-          `${import.meta.env.VITE_API_URL}/api/event`,
-          {
-            email: email,
-          },
-        );
-        if (response.status === 200) {
-          console.log('data', response.data.data);
-          setData(response.data.data);
-        } else {
-          toast.error('Failed to load event details', {
-            position: 'bottom-right',
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching event details:', error);
-      }
-    };
-    fetchEventDetails();
-  }, [refetch, email]);
+  const { data, loading, error, retry } = useFetchData(
+    async () => {
+      if (!email) return [];
+      const response = await apiRequest({
+        method: 'post',
+        url: '/api/event',
+        data: { email },
+      });
+      return response.data.data ?? [];
+    },
+    [refetch, email],
+  );
 
   const handleDelete = async () => {
+    setDeleting(true);
     try {
-      const response = await axios.delete(
-        `${import.meta.env.VITE_API_URL}/api/delete-event/${eventId}`,
-      );
+      const response = await apiRequest({
+        method: 'delete',
+        url: `/api/delete-event/${eventId}`,
+      });
       if (response.status === 200) {
+        deleteModalRef.current?.close();
         toast.success('Event deleted successfully', {
           position: 'bottom-right',
         });
-        // Refresh the event details after deletion
-        setRefetch((prev) => !prev); // Toggle refetch to trigger useEffect
-        setEventId(''); // Clear the eventId after deletion
+        setRefetch((prev) => !prev);
+        setEventId('');
       } else {
         toast.error('Failed to delete event', {
           position: 'bottom-right',
         });
       }
-    } catch (error) {
-      console.error('Error deleting event:', error);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err), {
+        position: 'bottom-right',
+      });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -65,51 +62,82 @@ const EventTask = () => {
       <div className="mb-8">
         <Navbar fullName={fullName} />
       </div>
-      <div className="container mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 px-4">
-        {data.map((item) => (
-          <div
-            className="card bg-white shadow-xl flex-col sm:flex-row"
-            key={item}
-          >
-            <figure className="p-6 sm:pr-0">
-              <img
-                src={volunteerPic}
-                alt="Volunteer"
-                className="w-full sm:w-[194px] h-48 sm:h-auto object-cover rounded-xl sm:rounded-none"
-              />
-            </figure>
-            <div className="card-body flex-1 justify-between p-6">
-              <div>
-                <h2 className="card-title text-2xl font-bold mb-4">
-                  {item?.volunteer_task}
-                </h2>
-                <p className="text-xl font-semibold mb-4">{item?.date}</p>
-              </div>
-              <div className="card-actions justify-end">
-                <button
-                  onClick={() => {
-                    document.getElementById('my_modal_1').showModal();
-                    setEventId(item?._id);
-                  }}
-                  className="btn btn-outline btn-error"
-                >
-                  Cancel
-                </button>
+
+      {loading && (
+        <>
+          <DataLoadingState variant="loading" className="py-6" />
+          <EventCardsSkeleton />
+        </>
+      )}
+
+      {!loading && error && (
+        <DataLoadingState variant="error" error={error} onRetry={retry} />
+      )}
+
+      {!loading && !error && (
+        <div className="container mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 px-4">
+          {data?.length === 0 && (
+            <p className="col-span-full text-center text-base-content/70 py-12">
+              No volunteer tasks found for this account.
+            </p>
+          )}
+          {data?.map((item) => (
+            <div
+              className="card bg-white shadow-xl flex-col sm:flex-row"
+              key={item?._id ?? item?.volunteer_task}
+            >
+              <figure className="p-6 sm:pr-0">
+                <img
+                  src={volunteerPic}
+                  alt="Volunteer"
+                  className="w-full sm:w-[194px] h-48 sm:h-auto object-cover rounded-xl sm:rounded-none"
+                />
+              </figure>
+              <div className="card-body flex-1 justify-between p-6">
+                <div>
+                  <h2 className="card-title text-2xl font-bold mb-4">
+                    {item?.volunteer_task}
+                  </h2>
+                  <p className="text-xl font-semibold mb-4">{item?.date}</p>
+                </div>
+                <div className="card-actions justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEventId(item?._id);
+                      deleteModalRef.current?.showModal();
+                    }}
+                    className="btn btn-outline btn-error"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
-      <dialog id="my_modal_1" className="modal">
+          ))}
+        </div>
+      )}
+
+      <dialog ref={deleteModalRef} className="modal">
         <div className="modal-box">
           <h3 className="font-bold text-lg">Delete the event</h3>
           <p className="py-4">Are you sure to delete this event?</p>
           <div className="modal-action">
             <form method="dialog" className="gap-1 flex">
-              <button className="btn" onClick={() => handleDelete()}>
+              <button
+                type="button"
+                className="btn"
+                disabled={deleting}
+                onClick={() => handleDelete()}
+              >
+                {deleting && (
+                  <span className="loading loading-spinner loading-sm" />
+                )}
                 Yes
               </button>
-              <button className="btn">No</button>
+              <button type="submit" className="btn">
+                No
+              </button>
             </form>
           </div>
         </div>

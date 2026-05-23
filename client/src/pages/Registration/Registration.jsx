@@ -1,8 +1,8 @@
-import axios from 'axios';
 import { useForm } from 'react-hook-form';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import { UserAuth } from '../../context/AuthContext';
+import { apiRequest, getApiErrorMessage } from '../../utils/apiClient';
 import logo from './../../assets/images/logo.png';
 
 const Registration = () => {
@@ -26,31 +26,30 @@ const Registration = () => {
   let navigate = useNavigate();
 
   const onSubmit = async (data) => {
-    console.log('data', data);
     try {
-      await axios
-        .post(`${import.meta.env.VITE_API_URL}/api/register`, data)
-        .then((res) => {
-          if (res?.status === 201) {
-            console.log('res', res);
-            navigate('/tasks', {
-              state: {
-                email: data.email,
-                fullName: data.full_name,
-              },
-            });
+      const res = await apiRequest({
+        method: 'post',
+        url: '/api/register',
+        data,
+      });
 
-            toast.success(res?.data?.message, {
-              position: 'bottom-right',
-            });
-            reset();
-          }
-        })
-        .catch((err) => {
-          console.log('err', err);
+      if (res?.status === 201) {
+        navigate('/tasks', {
+          state: {
+            email: data.email,
+            fullName: data.full_name,
+          },
         });
+
+        toast.success(res?.data?.message, {
+          position: 'bottom-right',
+        });
+        reset();
+      }
     } catch (error) {
-      console.log('error', error);
+      toast.error(getApiErrorMessage(error), {
+        position: 'bottom-right',
+      });
     }
   };
 
@@ -139,7 +138,7 @@ const Registration = () => {
                 {isSubmitting && (
                   <span className="loading loading-spinner"></span>
                 )}
-                Registration
+                {isSubmitting ? 'Submitting...' : 'Registration'}
               </button>
             </div>
           </form>

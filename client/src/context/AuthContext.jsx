@@ -5,12 +5,17 @@ import {
   signOut,
 } from 'firebase/auth';
 import { createContext, useContext, useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { auth } from '../config/firebaseConfig';
 
 const AuthContext = createContext();
 
 export const AuthContextProvider = ({ children }) => {
   const [user, setUser] = useState({});
+  const location = useLocation();
+  const navigate = useNavigate();
+
+
 
   const googleSignIn = () => {
     const provider = new GoogleAuthProvider();
@@ -42,6 +47,11 @@ export const AuthContextProvider = ({ children }) => {
   const logOut = () => {
     signOut(auth)
       .then(() => {
+        if (location.pathname === '/tasks') {
+          navigate('/login');
+        } else {
+          navigate('/');
+        }
         // Sign-out successful.
         console.log('Sign-out successful.');
       })

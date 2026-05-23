@@ -1,6 +1,6 @@
-import axios from 'axios';
 import { useForm } from 'react-hook-form';
 import { toast, ToastContainer } from 'react-toastify';
+import { apiRequest, getApiErrorMessage } from '../../utils/apiClient';
 
 const AddEvent = () => {
   const {
@@ -19,20 +19,19 @@ const AddEvent = () => {
     formData.append('bannerImage', data.bannerImage[0]);
 
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/add-event`,
-        formData,
-      );
-      console.log('response', response);
+      const response = await apiRequest({
+        method: 'post',
+        url: '/api/add-event',
+        data: formData,
+      });
       if (response.status === 201) {
         toast.success(response?.data?.message, {
           position: 'bottom-right',
         });
         reset();
-        return;
       }
     } catch (error) {
-      toast.error(error.message, {
+      toast.error(getApiErrorMessage(error), {
         position: 'bottom-right',
       });
     }
@@ -107,7 +106,7 @@ const AddEvent = () => {
               {isSubmitting && (
                 <span className="loading loading-spinner"></span>
               )}
-              Submit
+              {isSubmitting ? 'Submitting...' : 'Submit'}
             </button>
           </div>
         </form>
